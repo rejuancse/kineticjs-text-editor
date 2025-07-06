@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>KineticJS Fixed Text Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/kineticjs/5.2.0/kinetic.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* LEFT TOOLBAR */
+        .toolbar {
+            width: 240px;
+            background-color: #f4f6f8;
+            padding: 20px;
+            border-right: 1px solid #ccc;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .toolbar label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .toolbar input[type="text"],
+        .toolbar textarea,
+        .toolbar input[type="number"],
+        .toolbar input[type="color"],
+        .toolbar input[type="file"],
+        .toolbar button {
+            padding: 8px 10px;
+            font-size: 14px;
+            border: 1px solid #bbb;
+            border-radius: 5px;
+            width: 100%;
+        }
+
+        .toolbar textarea {
+            height: 80px;
+            resize: vertical;
+            font-family: Arial, sans-serif;
+        }
+
+        .toolbar input[type="color"] {
+            padding: 2px;
+            height: 40px;
+        }
+
+        .toolbar button {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .toolbar button:hover {
+            background-color: #0056b3;
+        }
+
+        /* RIGHT CANVAS */
+        #container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #ffffff;
+        }
+
+        #kinetic-area {
+            border: 1px solid #999;
+            width: 600px;
+            height: 800px;
+            background: #fff;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LEFT TOOLBAR -->
+    <div class="toolbar">
+        <div>
+            <label for="textInput">Text</label>
+            <textarea id="textInput" placeholder="আপনার টেক্সট লিখুন...">Ihr Text</textarea>
+        </div>
+
+        <div>
+            <label for="fontSizeInput">Font Size</label>
+            <input type="number" id="fontSizeInput" value="32" min="10" max="100">
+        </div>
+
+        <div>
+            <label for="textColorInput">Text Color</label>
+            <input type="color" id="textColorInput" value="#000000">
+        </div>
+
+        <div>
+            <label for="bgColorInput">Background Color</label>
+            <input type="color" id="bgColorInput" value="#ffffff">
+        </div>
+
+        <div>
+            <label for="imageUploader">Background Image</label>
+            <input type="file" id="imageUploader">
+        </div>
+
+        <button id="addText">Add Text</button>
+    </div>
+
+    <!-- RIGHT CANVAS AREA -->
+    <div id="container">
+        <div id="kinetic-area"></div>
+    </div>
+
+    <script>
+        const stage = new Kinetic.Stage({
+            container: 'kinetic-area',
+            width: 600,
+            height: 800
+        });
+
+        const layer = new Kinetic.Layer();
+        stage.add(layer);
+
+        let selectedText = null;
+        let selectedBorder = null;
+
+        function bindInputs(text, border) {
+            selectedText = text;
+            selectedBorder = border;
+            document.getElementById('textInput').value = text.getText();
+            document.getElementById('fontSizeInput').value = text.getFontSize();
+            document.getElementById('textColorInput').value = text.getFill();
+            document.getElementById('bgColorInput').value = border.getFill();
+        }
+
+        function updateTextDimensions(text, border, handleW, handleH) {
+            // Force text to recalculate its dimensions
+            // First, get the current width
+            const currentWidth = text.getWidth();
+
+            // Temporarily set width to auto-calculate, then get actual dimensions
+            text.setWidth(currentWidth);
+            const textWidth = text.getTextWidth();
+            const textHeight = text.getTextHeight();
+
+            // Update text dimensions
+            text.setWidth(Math.max(textWidth, currentWidth)); // Keep current width or expand if needed
+            text.setHeight(textHeight);
+
+            // Update border dimensions
+            border.setWidth(text.getWidth());
+            border.setHeight(textHeight);
+
+            // Update handle positions
+            handleW.setX(text.getWidth());
+            handleW.setY(textHeight / 2);
+            handleH.setX(text.getWidth() / 2);
+            handleH.setY(textHeight);
+
+            layer.draw();
+        }
+
+        document.getElementById('addText').addEventListener('click', function () {
+            const value = document.getElementById('textInput').value;
+            const fontSize = parseInt(document.getElementById('fontSizeInput').value);
+            const fillColor = document.getElementById('textColorInput').value;
+            const bgColor = document.getElementById('bgColorInput').value;
+
+            const group = new Kinetic.Group({
+                x: 100,
+                y: 100,
+                draggable: true
+            });
+
+            const text = new Kinetic.Text({
+                text: value,
+                fontSize: fontSize,
+                fontFamily: 'Arial',
+                fill: fillColor,
+                width: 200,
+                padding: 5,
+                align: 'center',
+                wrap: 'word'  // Enable word wrapping
+            });
+
+            // Calculate proper dimensions after text is created
+            // This ensures text wrapping is considered from the beginning
+            const textWidth = Math.max(text.getTextWidth(), 200); // Minimum width of 200
+            const textHeight = text.getTextHeight();
+
+            text.setWidth(textWidth);
+            text.setHeight(textHeight);
+
+            const border = new Kinetic.Rect({
+                stroke: 'blue',
+                strokeWidth: 1,
+                width: textWidth,
+                height: textHeight,
+                fill: bgColor
+            });
+
+            const handleW = new Kinetic.Circle({
+                x: textWidth,
+                y: textHeight / 2,
+                radius: 6,
+                fill: 'red',
+                draggable: true,
+                dragBoundFunc: pos => ({ x: pos.x, y: handleW.getAbsolutePosition().y })
+            });
+
+            const handleH = new Kinetic.RegularPolygon({
+                x: textWidth / 2,
+                y: textHeight,
+                sides: 3,
+                radius: 8,
+                fill: 'green',
+                draggable: true,
+                rotation: 180,
+                dragBoundFunc: pos => ({ x: handleH.getAbsolutePosition().x, y: pos.y })
+            });
+
+            const initialFontSize = fontSize;
+
+            // Width Resize
+            handleW.on('dragmove', function () {
+                const newWidth = Math.max(50, handleW.getX()); // Minimum width
+
+                // Set the new width first
+                text.setWidth(newWidth);
+
+                // Force text to recalculate height based on new width
+                // This is crucial for proper text wrapping
+                const newHeight = text.getTextHeight();
+                text.setHeight(newHeight);
+
+                // Update border to match text dimensions
+                border.setWidth(newWidth);
+                border.setHeight(newHeight);
+
+                // Update handle positions based on new dimensions
+                handleW.setX(newWidth);
+                handleW.setY(newHeight / 2);
+                handleH.setX(newWidth / 2);
+                handleH.setY(newHeight);
+
+                layer.draw();
+            });
+
+            // Height Resize
+            handleH.on('dragmove', function () {
+                const newHeight = Math.max(20, handleH.getY()); // Minimum height
+                const ratio = newHeight / text.getTextHeight();
+                const newFontSize = Math.max(10, Math.min(text.getFontSize() * ratio, 200));
+
+                text.setFontSize(newFontSize);
+
+                // Recalculate dimensions after font size change
+                const adjustedWidth = text.getTextWidth();
+                const adjustedHeight = text.getTextHeight();
+
+                text.setWidth(adjustedWidth);
+                text.setHeight(adjustedHeight);
+
+                border.setWidth(adjustedWidth);
+                border.setHeight(adjustedHeight);
+
+                handleH.setY(adjustedHeight);
+                handleH.setX(adjustedWidth / 2);
+                handleW.setX(adjustedWidth);
+                handleW.setY(adjustedHeight / 2);
+
+                layer.draw();
+            });
+
+            text.on('click', function () {
+                bindInputs(text, border);
+            });
+
+            group.add(border);
+            group.add(text);
+            group.add(handleW);
+            group.add(handleH);
+            layer.add(group);
+            layer.draw();
+
+            bindInputs(text, border);
+        });
+
+        document.getElementById('textInput').addEventListener('input', function () {
+            if (selectedText && selectedBorder) {
+                selectedText.setText(this.value);
+
+                // Find the handles in the same group
+                const group = selectedText.getParent();
+                const handleW = group.getChildren()[2]; // handleW is 3rd child
+                const handleH = group.getChildren()[3]; // handleH is 4th child
+
+                updateTextDimensions(selectedText, selectedBorder, handleW, handleH);
+            }
+        });
+
+        document.getElementById('fontSizeInput').addEventListener('input', function () {
+            if (selectedText && selectedBorder) {
+                const size = parseInt(this.value);
+                selectedText.setFontSize(size);
+
+                // Find the handles in the same group
+                const group = selectedText.getParent();
+                const handleW = group.getChildren()[2]; // handleW is 3rd child
+                const handleH = group.getChildren()[3]; // handleH is 4th child
+
+                updateTextDimensions(selectedText, selectedBorder, handleW, handleH);
+            }
+        });
+
+        document.getElementById('textColorInput').addEventListener('input', function () {
+            if (selectedText) {
+                selectedText.setFill(this.value);
+                layer.draw();
+            }
+        });
+
+        document.getElementById('bgColorInput').addEventListener('input', function () {
+            if (selectedBorder) {
+                selectedBorder.setFill(this.value);
+                layer.draw();
+            }
+        });
+
+        document.getElementById('imageUploader').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function (evt) {
+                const imageObj = new Image();
+                imageObj.onload = function () {
+                    const img = new Kinetic.Image({
+                        image: imageObj,
+                        x: 0,
+                        y: 0,
+                        width: stage.getWidth(),
+                        height: stage.getHeight()
+                    });
+                    layer.add(img);
+                    img.moveToBottom();
+                    layer.draw();
+                };
+                imageObj.src = evt.target.result;
+            };
+            if (file) reader.readAsDataURL(file);
+        });
+    </script>
+</body>
+</html>
