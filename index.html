@@ -98,7 +98,7 @@
 
         <div>
             <label for="fontSizeInput">Font Size</label>
-            <input type="number" id="fontSizeInput" value="32" min="10" max="100">
+            <input type="number" id="fontSizeInput" value="32" min="10" max="200">
         </div>
 
         <div>
@@ -199,7 +199,7 @@
                 strokeWidth: 1,
                 width: textWidth,
                 height: textHeight,
-                fill: bgColor
+                fill: bgColor ? "#ffffff00" : '',
             });
 
             const handleW = new Kinetic.Circle({
@@ -246,16 +246,22 @@
                 const newHeight = Math.max(20, handleH.getY());
                 const ratio = newHeight / text.getTextHeight();
                 const newFontSize = Math.max(10, Math.min(text.getFontSize() * ratio, 200));
+
                 text.setFontSize(newFontSize);
-                const adjustedWidth = text.getTextWidth();
+
+                const tempWidth = text.getWidth();
+                text.setWidth(undefined);
+                const naturalWidth = text.getTextWidth();
+                text.setWidth(Math.max(naturalWidth, tempWidth));
+
                 const adjustedHeight = text.getTextHeight();
-                text.setWidth(adjustedWidth);
                 text.setHeight(adjustedHeight);
-                border.setWidth(adjustedWidth);
+                border.setWidth(text.getWidth());
                 border.setHeight(adjustedHeight);
+
                 handleH.setY(adjustedHeight);
-                handleH.setX(adjustedWidth / 2);
-                handleW.setX(adjustedWidth);
+                handleH.setX(text.getWidth() / 2);
+                handleW.setX(text.getWidth());
                 handleW.setY(adjustedHeight / 2);
                 layer.draw();
             });
